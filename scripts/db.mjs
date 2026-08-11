@@ -29,8 +29,36 @@ async function loadEnv() {
   }
 }
 
+/**
+ * Describe la cadena de conexión sin revelar la contraseña: los logs de Render
+ * son visibles y no deben contener credenciales. Deja ver la forma, que es lo
+ * que hace falta para detectar un recorte o un espacio de más.
+ */
+function describeUrl(raw) {
+  const value = raw.trim();
+  if (!value) return '(vacía)';
+  const avisos = [];
+  if (raw !== value) avisos.push('¡tiene espacios o saltos de línea alrededor!');
+  if (/^["']|["']$/.test(value)) avisos.push('¡tiene comillas alrededor!');
+  try {
+    const url = new URL(value);
+    const partes = [
+      `usuario=${url.username || '(falta)'}`,
+      `contraseña=${url.password ? `${url.password.length} caracteres` : '(falta)'}`,
+      `host=${url.hostname || '(falta)'}`,
+      `base=${url.pathname.replace('/', '') || '(falta)'}`,
+      `sslmode=${url.searchParams.get('sslmode') ?? '(sin definir)'}`,
+    ];
+    return [...partes, ...avisos].join(' · ');
+  } catch {
+    return [`no tiene forma de URL (empieza por "${value.slice(0, 12)}…")`, ...avisos].join(' · ');
+  }
+}
+
 function createClient() {
-  const connectionString = process.env.DATABASE_URL;
+  // Se limpian espacios y comillas: es el error más común al pegar la cadena
+  // en el panel de Render, y el fallo posterior no apunta a la causa.
+  const connectionString = process.env.DATABASE_URL?.trim().replace(/^["']|["']$/g, '');
   if (!connectionString) {
     console.error('✗ Falta DATABASE_URL. Copia apps/api/.env.example a apps/api/.env');
     process.exit(1);
@@ -100,6 +128,16 @@ try {
   await (command === 'migrate' ? migrate(client) : seed(client));
 } catch (error) {
   console.error(`✗ ${error.message}`);
+  if (/password authentication failed|role .* does not exist/i.test(error.message)) {
+    const url = process.env.DATABASE_URL ?? '';
+    console.error(
+      '\n  DATABASE_URL no coincide con la base de datos. Revisa, por este orden:\n' +
+        '   1. Que sea la cadena actual de Neon (si rotaste la contraseña, la anterior ya no sirve).\n' +
+        '   2. Que no lleve espacios ni comillas alrededor al pegarla en el panel.\n' +
+        '   3. Que esté completa: usuario, contraseña, host, base y ?sslmode=verify-full.\n' +
+        `\n  Lo que se está usando: ${describeUrl(url)}`,
+    );
+  }
   process.exitCode = 1;
 } finally {
   await client.end();
