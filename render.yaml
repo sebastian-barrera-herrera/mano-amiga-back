@@ -5,12 +5,14 @@
 # (JWT_SECRET lo genera Render solo).
 services:
   - type: web
-    name: mano-amiga-api
+    name: mano-amiga-back
     runtime: node
     plan: free
     region: oregon
     branch: main
-    buildCommand: npm install && npm run build
+    # --include=dev es imprescindible: con NODE_ENV=production npm omitiría las
+    # devDependencies, y `nest` (que compila el proyecto) es una de ellas.
+    buildCommand: npm ci --include=dev && npm run build
     # Las migraciones son idempotentes: se aplican en cada arranque.
     startCommand: npm run db:migrate && npm run start
     healthCheckPath: /api/health

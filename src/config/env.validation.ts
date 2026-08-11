@@ -9,7 +9,8 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
   if (missing.length > 0) {
     throw new Error(
       `Faltan variables de entorno obligatorias: ${missing.join(', ')}. ` +
-        'Copia apps/api/.env.example a apps/api/.env y complétalas.',
+        'En local, copia .env.example a .env y complétalas; en Render, defínelas ' +
+        'en Environment.',
     );
   }
 

@@ -267,9 +267,13 @@ A mano, si prefieres **New → Web Service**:
 | Campo | Valor |
 | --- | --- |
 | Runtime | Node |
-| Build command | `npm install && npm run build` |
+| Build command | `npm ci --include=dev && npm run build` |
 | Start command | `npm run db:migrate && npm run start` |
 | Health check path | `/api/health` |
+
+> `--include=dev` no es opcional: con `NODE_ENV=production`, npm omite las
+> devDependencies y `nest` —que es lo que compila el proyecto— es una de ellas. Sin ese flag el
+> build falla con `nest: not found`.
 
 Y estas variables de entorno:
 
