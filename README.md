@@ -112,7 +112,7 @@ Cómo se traduce la organización clásica de una API a NestJS:
 | `JWT_SECRET` | **Sí** | Secreto para firmar los tokens. En producción, 32 caracteres o más. |
 | `PORT` | No | Puerto (3000 por defecto; Render lo inyecta). |
 | `NODE_ENV` | No | `development` o `production`. |
-| `CORS_ORIGINS` | No | Orígenes permitidos separados por coma. Vacío o `*` permite todos (sólo desarrollo). |
+| `CORS_ORIGINS` | No | Orígenes permitidos separados por coma. Admite `*` dentro del dominio (`https://*--misitio.netlify.app`) para las URL de previsualización. Vacío o `*` permite todos (sólo desarrollo). |
 | `JWT_EXPIRES_IN` | No | Duración de la sesión (`30d` por defecto). |
 | `GOOGLE_CLIENT_ID` | No | Client ID de OAuth. Vacío deshabilita el acceso con Google. |
 | `ADMIN_EMAILS` | No | Correos que reciben rol de administrador al registrarse. |
@@ -259,16 +259,30 @@ un reporte, el backend borra la imagen en Cloudinary.
 ## Despliegue en Render
 
 Con [`render.yaml`](render.yaml): en Render elige **New → Blueprint**, apunta a este
-repositorio y completa las variables marcadas como `sync: false`.
+repositorio y pega la única variable que pide, `DATABASE_URL`. El resto ya viene resuelto en el
+archivo y `JWT_SECRET` lo genera Render.
 
 A mano, si prefieres **New → Web Service**:
 
-- Build command: `npm install && npm run build`
-- Start command: `npm run db:migrate && npm run start`
-- Health check path: `/api/health`
+| Campo | Valor |
+| --- | --- |
+| Runtime | Node |
+| Build command | `npm install && npm run build` |
+| Start command | `npm run db:migrate && npm run start` |
+| Health check path | `/api/health` |
 
-Variables a definir: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS` (la URL de Netlify) y, si las
-usas, las de Cloudinary y Google.
+Y estas variables de entorno:
+
+| Variable | Valor |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `NODE_VERSION` | `20` |
+| `DATABASE_URL` | La cadena *pooled* de Neon, con `?sslmode=verify-full` |
+| `CORS_ORIGINS` | La URL del frontend en Netlify, sin barra final |
+| `JWT_SECRET` | 48 bytes aleatorios (`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`) |
+| `JWT_EXPIRES_IN` | `30d` |
+
+Cloudinary y Google son opcionales: añádelas cuando las necesites.
 
 > El plan gratuito duerme el servicio tras 15 minutos sin tráfico: la primera petición puede
 > tardar ~50 segundos. El pool reintenta una vez cuando Neon ha cerrado la conexión por

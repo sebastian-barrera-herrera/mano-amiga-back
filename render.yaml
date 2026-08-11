@@ -1,5 +1,8 @@
 # Despliegue en Render (plan gratuito).
 # En Render: New → Blueprint → repositorio mano-amiga-back.
+#
+# Sólo te pedirá UN valor: DATABASE_URL. El resto ya va resuelto aquí
+# (JWT_SECRET lo genera Render solo).
 services:
   - type: web
     name: mano-amiga-api
@@ -17,24 +20,31 @@ services:
         value: production
       - key: NODE_VERSION
         value: "20"
-      # Se pegan a mano en el panel de Render (no van en el repositorio).
+
+      # Cadena de conexión de Neon. Render la pide al crear el Blueprint.
+      # Usa la "pooled connection" y cambia sslmode=require por verify-full.
       - key: DATABASE_URL
         sync: false
+
+      # Dominio del frontend en Netlify. Admite `*` para las URL de
+      # previsualización, p. ej. https://*--manoamigacolombia.netlify.app
       - key: CORS_ORIGINS
-        sync: false
+        value: https://manoamigacolombia.netlify.app
+
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 30d
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: ADMIN_EMAILS
-        sync: false
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
+
       - key: CLOUDINARY_FOLDER
         value: manoamiga
+
+# Variables opcionales: añádelas después en el panel de Render (Environment)
+# sólo si vas a usar esas funciones. Sin ellas la app funciona igual.
+#
+#   CLOUDINARY_CLOUD_NAME · CLOUDINARY_API_KEY · CLOUDINARY_API_SECRET
+#       Habilitan la subida de fotos.
+#   GOOGLE_CLIENT_ID
+#       Habilita el inicio de sesión con Google.
+#   ADMIN_EMAILS
+#       Correos que reciben rol de administrador al registrarse.
