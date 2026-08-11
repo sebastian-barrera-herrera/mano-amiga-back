@@ -1,0 +1,18 @@
+node_modules/
+dist/
+coverage/
+
+# Nunca subir credenciales: la cadena de Neon y el secreto del JWT van aquí.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+.vscode/*
+.idea/
+.claude/

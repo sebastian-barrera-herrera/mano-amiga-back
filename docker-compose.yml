@@ -1,0 +1,23 @@
+# PostgreSQL local, opcional: sólo si prefieres no usar Neon en desarrollo.
+#   docker compose up -d
+#   DATABASE_URL=postgresql://manoamiga:manoamiga@localhost:5432/manoamiga
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: manoamiga-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: manoamiga
+      POSTGRES_PASSWORD: manoamiga
+      POSTGRES_DB: manoamiga
+    ports:
+      - '5432:5432'
+    volumes:
+      - manoamiga-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U manoamiga']
+      interval: 5s
+      retries: 10
+
+volumes:
+  manoamiga-data:
