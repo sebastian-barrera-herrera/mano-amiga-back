@@ -2,10 +2,12 @@ import 'reflect-metadata';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { raw } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { corsOriginChecker } from './config/cors';
+import { MAX_PHOTO_BYTES } from './modules/uploads/photos.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -19,6 +21,13 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.use(helmet({ crossOriginResourcePolicy: false }));
+
+  // Las fotos llegan como cuerpo binario a /api/photos. Sólo esa ruta usa este
+  // parser; el resto de la API sigue con JSON y su límite por defecto.
+  app.use(
+    '/api/photos',
+    raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: MAX_PHOTO_BYTES }),
+  );
   app.enableCors({
     origin: corsOriginChecker(process.env.CORS_ORIGINS),
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

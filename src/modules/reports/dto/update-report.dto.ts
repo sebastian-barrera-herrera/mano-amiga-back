@@ -95,7 +95,10 @@ export class UpdateReportDto {
 
   @IsOptional()
   @TrimToNull()
-  @IsUrl({ require_protocol: true })
+  @IsUrl(
+    { require_protocol: true, require_tld: false },
+    { message: 'La URL de la foto no es válida' },
+  )
   @MaxLength(500)
   photoUrl?: string | null;
 

@@ -15,12 +15,12 @@ o encontradas, y muro de información comunitaria.
 | --- | --- |
 | **Una sola tabla `reports`** con `kind` (person/pet) y `status` (missing/found) | Los cuatro formularios comparten el 80 % de los campos. Con una tabla, el listado, el buscador y los filtros son una única consulta en lugar de cuatro con `UNION`. |
 | **SQL directo con `pg`**, sin ORM | Mantiene `node_modules` pequeño y el arranque rápido en el plan gratuito de Render. Todo el SQL vive en `*.repository.ts` con consultas parametrizadas. |
-| **Las fotos no pasan por el servidor** | El backend sólo firma la subida; el navegador envía el archivo directo a Cloudinary. Ahorra el ancho de banda del plan gratuito. |
+| **Las fotos tienen dos modos** | Con Cloudinary configurado, el backend sólo firma la subida y el navegador envía el archivo directo al CDN. Sin Cloudinary, la foto se guarda en PostgreSQL: así la app nunca se queda sin fotos, que es lo que más ayuda a reconocer a alguien. |
 | **Publicar no requiere cuenta** | En una emergencia, obligar a registrarse cuesta reportes. La sesión sólo sirve para administrar lo propio. |
 
-La API **degrada con elegancia**: sin credenciales de Cloudinary la subida de fotos se
-deshabilita sola, y sin `GOOGLE_CLIENT_ID` el acceso con Google se desactiva. En ambos casos
-el resto sigue funcionando.
+La API **degrada con elegancia**: sin credenciales de Cloudinary las fotos pasan a guardarse en
+la base de datos, y sin `GOOGLE_CLIENT_ID` el acceso con Google se desactiva. En ambos casos el
+resto sigue funcionando igual.
 
 ---
 
@@ -120,6 +120,7 @@ Cómo se traduce la organización clásica de una API a NestJS:
 | `CLOUDINARY_API_KEY` | No | API key. |
 | `CLOUDINARY_API_SECRET` | No | API secret. **Nunca** se expone al navegador. |
 | `CLOUDINARY_FOLDER` | No | Carpeta de las fotos (`manoamiga` por defecto). |
+| `PUBLIC_API_URL` | No | URL pública de la API. Sólo hace falta si las fotos van a la base de datos y el servidor está detrás de un proxy que no propaga el host; si falta, se deduce de cada petición. |
 | `DATABASE_POOL_MAX` | No | Conexiones máximas (5 por defecto, adecuado para Neon gratuito). |
 | `DATABASE_SSL_NO_VERIFY` | No | `true` sólo si el servidor tiene certificado autofirmado. |
 
@@ -161,6 +162,13 @@ Tres tablas. Esquema completo en [`db/migrations/001_init.sql`](db/migrations/00
 
 Las categorías (`water`, `food`, `shelter`, `medical`, `volunteers`, `transport`, `info`)
 permiten filtrar el muro, que es lo que hace falta cuando hay cientos de mensajes.
+
+### `photos`
+
+`mime`, `bytes` (BYTEA), `size_bytes`, `created_at`. Sólo se usa cuando no hay Cloudinary.
+
+Con imágenes de ~30 KB, los 0,5 GB del plan gratuito de Neon dan para unas 15.000 fotos. Si
+esperas mucho más volumen, configura Cloudinary y la app cambiará de modo sola.
 
 ### `users`
 
@@ -246,13 +254,28 @@ Devuelven `{ token, user }`. El token viaja en `Authorization: Bearer <token>`.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/api/uploads/status` | Si la subida de fotos está disponible |
+| `GET` | `/api/uploads/status` | Dónde debe subirse la foto: `{ mode: 'cloudinary' \| 'database', maxBytes }` |
 | `GET` | `/api/uploads/signature` | Firma para subir a Cloudinary (20 por minuto y IP) |
+| `POST` | `/api/photos` | Guarda la imagen en la base de datos (15 por minuto y IP) |
+| `GET` | `/api/photos/:id` | Sirve la imagen guardada |
 | `GET` | `/api/health` | Estado del servicio y de la base de datos |
 
-Flujo de una foto: el navegador comprime la imagen → pide la firma → sube el archivo directo a
-Cloudinary → envía `photoUrl` y `photoPublicId` al crear el reporte. Al eliminar o reemplazar
-un reporte, el backend borra la imagen en Cloudinary.
+En los dos modos, el navegador **comprime la imagen antes de subirla** (máx. 1280 px, JPEG):
+una foto de 2 MB acaba pesando unos 25-50 KB.
+
+- **`cloudinary`** (si están las tres variables `CLOUDINARY_*`): el navegador pide una firma y
+  sube el archivo directo al CDN. Es el modo preferible: no gasta ancho de banda del servidor y
+  las imágenes se sirven optimizadas.
+- **`database`** (por defecto, sin configurar nada): el navegador envía la imagen como cuerpo
+  binario a `POST /api/photos`, que la guarda en la tabla `photos`. No hace falta ninguna
+  librería de subida ni cuenta en ningún servicio.
+
+En ambos casos el frontend manda `photoUrl` y `photoPublicId` al crear el reporte, y al
+eliminarlo o cambiarle la foto el backend libera la imagen anterior donde corresponda.
+
+`POST /api/photos` comprueba la **firma real del archivo** (no sólo la cabecera
+`Content-Type`, que la envía el cliente) y rechaza cualquier cosa que no sea JPG, PNG o WEBP.
+Las fotos que se suben pero cuyo formulario nunca se envía se borran a los dos días.
 
 ---
 

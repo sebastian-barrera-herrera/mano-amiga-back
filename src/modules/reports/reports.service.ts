@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { paginate, type Paginated } from '../../common/interfaces/paginated.interface';
 import type { AuthUser } from '../auth/entities/user.entity';
 import { CloudinaryService } from '../uploads/cloudinary.service';
+import { PhotosService } from '../uploads/photos.service';
 import type { CreateReportDto } from './dto/create-report.dto';
 import type { FindReportsQueryDto } from './dto/find-reports-query.dto';
 import type { UpdateReportDto } from './dto/update-report.dto';
@@ -13,7 +14,14 @@ export class ReportsService {
   constructor(
     private readonly reports: ReportsRepository,
     private readonly cloudinary: CloudinaryService,
+    private readonly photos: PhotosService,
   ) {}
+
+  /** La foto puede vivir en Cloudinary o en la propia base de datos. */
+  private releasePhoto(publicId: string | null): void {
+    if (PhotosService.isDatabasePhoto(publicId)) void this.photos.remove(publicId);
+    else void this.cloudinary.destroy(publicId);
+  }
 
   async findAll(query: FindReportsQueryDto, user?: AuthUser): Promise<Paginated<Report>> {
     const { rows, total } = await this.reports.findMany(query);
@@ -89,9 +97,9 @@ export class ReportsService {
       throw new BadRequestException('Debe quedar al menos un correo o un teléfono de contacto.');
     }
 
-    // Si se reemplazó la foto, se libera la anterior en Cloudinary.
-    if (changes.photoPublicId && changes.photoPublicId !== existing.photo_public_id) {
-      void this.cloudinary.destroy(existing.photo_public_id);
+    // Si se reemplazó o se quitó la foto, se libera la anterior.
+    if (changes.photoPublicId !== undefined && changes.photoPublicId !== existing.photo_public_id) {
+      this.releasePhoto(existing.photo_public_id);
     }
 
     const row = await this.reports.update(id, changes, resolved);
@@ -102,7 +110,7 @@ export class ReportsService {
   async remove(id: string, user: AuthUser): Promise<{ deleted: true }> {
     const existing = await this.assertCanManage(id, user);
     await this.reports.delete(id);
-    void this.cloudinary.destroy(existing.photo_public_id);
+    this.releasePhoto(existing.photo_public_id);
     return { deleted: true };
   }
 

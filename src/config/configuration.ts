@@ -5,6 +5,9 @@ export interface AppConfig {
   jwt: { secret: string; expiresIn: string };
   googleClientId: string | null;
   adminEmails: string[];
+  /** URL pública de la API, para construir los enlaces de las fotos guardadas
+   *  en la base de datos. Si falta, se deduce de cada petición. */
+  publicApiUrl: string | null;
   cloudinary: {
     cloudName: string;
     apiKey: string;
@@ -31,6 +34,7 @@ export const configuration = (): AppConfig => {
       .split(',')
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),
+    publicApiUrl: process.env.PUBLIC_API_URL?.trim() || null,
     // Sin credenciales completas la app sigue funcionando, sólo sin fotos.
     cloudinary:
       cloudName && apiKey && apiSecret

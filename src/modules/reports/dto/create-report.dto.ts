@@ -96,7 +96,12 @@ export class CreateReportDto {
 
   @IsOptional()
   @TrimToUndefined()
-  @IsUrl({ require_protocol: true }, { message: 'La URL de la foto no es válida' })
+  // require_tld: false para aceptar http://localhost:3000 en desarrollo, que es
+  // la URL que devuelve la API cuando las fotos se guardan en la base de datos.
+  @IsUrl(
+    { require_protocol: true, require_tld: false },
+    { message: 'La URL de la foto no es válida' },
+  )
   @MaxLength(500)
   photoUrl?: string;
 
